@@ -1,0 +1,34 @@
+# Byte-compiled / optimized / virtual machine files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+.env/
+
+# IDE-specific files and directories
+.idea/  # For PyCharm
+.vscode/ # For VS Code (consider only ignoring user settings/cache)
+*.swp
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.nox/
+.tox/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-line.txt
+
+# OS-specific files
+.DS_Store # macOS
+Thumbs.db # Windows
+
+# Miscellaneous
+.coverage # coverage.py files
+.pytest_cache/ # pytest cache
