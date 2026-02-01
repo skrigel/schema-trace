@@ -2,12 +2,14 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.DS_Store
 
 # Virtual environment
 venv/
 env/
 .venv/
 .env/
+.env
 
 # IDE-specific files and directories
 .idea/  # For PyCharm
