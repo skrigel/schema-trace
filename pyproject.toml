@@ -12,7 +12,11 @@ dependencies = [
     "uvicorn>=0.40.0,<0.41.0",
     "sqlalchemy (>=2.0.46,<3.0.0)",
     "alembic (>=1.18.3,<2.0.0)",
-    "psycopg2-binary (>=2.9.11,<3.0.0)"
+    "psycopg2-binary (>=2.9.11,<3.0.0)",
+    "click>=8.1.0,<9.0.0",
+    "requests>=2.31.0,<3.0.0",
+    "rich>=13.7.0,<14.0.0",
+    "pydantic-settings>=2.0.0"
 ]
 
 [tool.poetry]
@@ -21,3 +25,7 @@ packages = [{include = "*", from = "app"}]
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+
+[project.scripts]
+schematrace = "cli.main:cli"
