@@ -90,7 +90,6 @@ def update_model(model_id: int, model: ModelUpdate, db: Session = Depends(get_db
     if not db_model:
         raise HTTPException(status_code=404, detail=f"Model with id {model_id} not found")
 
-    # Update only provided fields
     update_data = model.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(db_model, field, value)

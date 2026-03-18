@@ -31,7 +31,6 @@ def create_events_bulk(payload: BulkEventCreate, db: Session = Depends(get_db)):
     created_events = []
 
     for event_data in payload.events:
-        # Validate model exists
         model = db.query(Model).filter(Model.id == event_data.model_id).first()
         if not model:
             raise HTTPException(

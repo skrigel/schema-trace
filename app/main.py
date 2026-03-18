@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app import admin
+from app.routers import models, projects, events
 import logging
 import sys
 from app.config.settings import settings
@@ -22,8 +23,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Placeholder for later admin 
+# Routers
 app.include_router(admin.router)
+app.include_router(models.router)
+app.include_router(projects.router)
+app.include_router(events.router)
 
 @app.get("/")
 async def root():
