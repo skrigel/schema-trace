@@ -5,8 +5,12 @@ from sqlalchemy import pool
 
 from alembic import context
 
-# this imports your Base (which has models registered via app.db.base)
+# this imports your Base
 from app.db.base import Base
+# Import models so they're registered with Base.metadata for autogenerate
+from app.db import models
+
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
