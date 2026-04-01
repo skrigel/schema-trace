@@ -1,8 +1,10 @@
 from datetime import datetime
-
-from sqlalchemy import JSON, Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Column, DateTime, Enum as SQLEnum, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.db.base import Base
+from enum import Enum
+## DATABASE MODELS
+ 
 
 class User(Base):
     __tablename__ = "users"
@@ -30,7 +32,7 @@ class Project(Base):
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.now)
 
-    models = relationship("Model", back_populates="project")
+    models = relationship("Model", back_populates="project", cascade="all, delete-orphan")
 
 
 class Model(Base):
@@ -45,6 +47,12 @@ class Model(Base):
     events = relationship("SchemaEvent", back_populates="model", order_by="SchemaEvent.timestamp", cascade="all, delete-orphan")
     fields = relationship("Field", back_populates="model", cascade="all, delete-orphan")
 
+    __table_args__ = (
+        UniqueConstraint('project_id', 'name', name='uq_project_model'),
+      )
+
+    
+
 class Field(Base):
     __tablename__ = "fields"
     id = Column(Integer, primary_key=True)
@@ -56,14 +64,11 @@ class Field(Base):
     unique = Column(Boolean, nullable=False, default=False)
     default_value = Column(String(255), nullable=True)
 
-    # Lifecycle
     added_at = Column(DateTime, default=datetime.now, nullable=False)
     removed_at = Column(DateTime, nullable=True)
 
-    # Relationships
     model = relationship("Model", back_populates="fields")
 
-    # Constraints
     __table_args__ = (
         UniqueConstraint('model_id', 'name', name='uq_model_field'),
         Index('idx_model_field', 'model_id', 'name'),
@@ -76,17 +81,19 @@ class SchemaEvent(Base):
     model_id = Column(Integer, ForeignKey("models.id", ondelete="CASCADE"), nullable=False)
 
     # Event details
-    event_type = Column(String(50), nullable=False)  # e.g., ADD_COLUMN, REMOVE_COLUMN, CHANGE_TYPE
+    event_type = Column(SQLEnum(EventType), nullable=False)  # e.g., ADD_COLUMN, REMOVE_COLUMN, CHANGE_TYPE
     field_name = Column(String(100), nullable=False)  # Name of the field being changed
     timestamp = Column(DateTime, default=datetime.now, nullable=False)
 
     # Additional data
     risk_level = Column(String(50), nullable=False, default="low")  # low, medium, high
+    # metadata = Column(JSON, nullable=True)  # Additional event metadata as JSON
 
     # Relationships
     model = relationship("Model", back_populates="events")
 
-# TODO: SchemaHistory - keeps track of all schema changes (relation to SchemaUpdateEvents), including the timestamp, user who made the change, and a description of the change. 
-## TODO: SchemaUpdateEvent - added new fields/removed fields/changed field types, etc.
+
+# TODO: SchemaHistory - keeps track of all schema changes (relation to SchemaUpdateEvents), including the timestamp, user who made the change, and a description of the change.
+# TODO: SchemaUpdateEvent - added new fields/removed fields/changed field types, etc.
 
 # TODO: define different types of updates
