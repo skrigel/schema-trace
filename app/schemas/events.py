@@ -1,12 +1,13 @@
 from datetime import datetime
 from pydantic import BaseModel, Field
 
+### DATABASE MODELS
 
 class SchemaEventBase(BaseModel):
     event_type: str
     field_name: str = Field(..., description="Name of the field being changed")
     risk_level: str = Field(default="low", description="Risk level: low, medium, high")
-    metadata: dict | None = Field(default=None, description="Additional event metadata as JSON")
+    # metadata: dict | None = Field(default=None, description="Additional event metadata as JSON")
 
 
 class SchemaEventCreate(SchemaEventBase):
