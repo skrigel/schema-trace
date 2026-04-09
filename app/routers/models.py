@@ -1,24 +1,25 @@
 from app.db.database import get_db
 from app.db.models import Model, Field
-from fastapi import APIRouter, Depends, HTTPException
+from app.dependencies import limiter
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.schemas.models import ModelResponse, ModelCreate, ModelResponseWithFields, ModelUpdate
 from sqlalchemy.orm import Session, joinedload
 
 
 router = APIRouter(prefix="/models", tags=["models"])
 
-
+@limiter.limit("20/minute")
 @router.get("/{model_id}", response_model=ModelResponse)
-def get_model(model_id: int, db: Session = Depends(get_db)):
+def get_model(request: Request, model_id: int, db: Session = Depends(get_db)):
     """Get a model by ID (without fields)"""
     model = db.query(Model).filter(Model.id == model_id).first()
     if not model:
         raise HTTPException(status_code=404, detail=f"Model with id {model_id} not found")
     return model
 
-
+@limiter.limit("20/minute")
 @router.get("/{model_id}/full", response_model=ModelResponseWithFields)
-def get_model_with_fields(model_id: int, include_removed: bool = False, db: Session = Depends(get_db)):
+def get_model_with_fields(request: Request, model_id: int, include_removed: bool = False, db: Session = Depends(get_db)):
     """
     Get a model with its fields
 
@@ -38,9 +39,9 @@ def get_model_with_fields(model_id: int, include_removed: bool = False, db: Sess
 
     return model
 
-
+@limiter.limit("20/minute")
 @router.get("/", response_model=list[ModelResponse])
-def list_models(project_id: int | None = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def list_models(request: Request, project_id: int | None = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """
     List all models, optionally filtered by project_id
 
@@ -56,17 +57,15 @@ def list_models(project_id: int | None = None, skip: int = 0, limit: int = 100, 
     models = query.offset(skip).limit(limit).all()
     return models
 
-
+@limiter.limit("20/minute")
 @router.post("/", response_model=ModelResponse, status_code=201)
-def create_model(model: ModelCreate, db: Session = Depends(get_db)):
+def create_model(request: Request, model: ModelCreate, db: Session = Depends(get_db)):
     """Create a new model"""
-    # Check if project exists
     from app.db.models import Project
     project = db.query(Project).filter(Project.id == model.project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail=f"Project with id {model.project_id} not found")
 
-    # Check for duplicate model name within project
     existing = db.query(Model)\
         .filter(Model.project_id == model.project_id, Model.name == model.name)\
         .first()
@@ -82,9 +81,9 @@ def create_model(model: ModelCreate, db: Session = Depends(get_db)):
     db.refresh(db_model)
     return db_model
 
-
+@limiter.limit("20/minute")
 @router.patch("/{model_id}", response_model=ModelResponse)
-def update_model(model_id: int, model: ModelUpdate, db: Session = Depends(get_db)):
+def update_model(request: Request, model_id: int, model: ModelUpdate, db: Session = Depends(get_db)):
     """Update a model's name or description"""
     db_model = db.query(Model).filter(Model.id == model_id).first()
     if not db_model:
@@ -98,9 +97,9 @@ def update_model(model_id: int, model: ModelUpdate, db: Session = Depends(get_db
     db.refresh(db_model)
     return db_model
 
-
+@limiter.limit("20/minute")
 @router.delete("/{model_id}", status_code=204)
-def delete_model(model_id: int, db: Session = Depends(get_db)):
+def delete_model(request: Request, model_id: int, db: Session = Depends(get_db)):
     """Delete a model and all its fields and events"""
     db_model = db.query(Model).filter(Model.id == model_id).first()
     if not db_model:

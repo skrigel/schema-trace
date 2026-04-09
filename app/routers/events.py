@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.db.database import get_db
+from app.dependencies import limiter
 from app.db.models import SchemaEvent, Model
 from app.schemas.events import SchemaEventCreate, SchemaEventResponse
 from typing import List
@@ -19,9 +20,9 @@ class BulkEventResponse(BaseModel):
     created_count: int
     events: List[SchemaEventResponse]
 
-
+@limiter.limit("5/minute")
 @router.post("/bulk", response_model=BulkEventResponse, status_code=201)
-def create_events_bulk(payload: BulkEventCreate, db: Session = Depends(get_db)):
+def create_events_bulk(request: Request, payload: BulkEventCreate, db: Session = Depends(get_db)):
     """
     Bulk create schema events (used by CLI scan command)
 
@@ -53,9 +54,9 @@ def create_events_bulk(payload: BulkEventCreate, db: Session = Depends(get_db)):
         events=created_events
     )
 
-
+@limiter.limit("30/minute")
 @router.post("/", response_model=SchemaEventResponse, status_code=201)
-def create_event(event: SchemaEventCreate, db: Session = Depends(get_db)):
+def create_event(request: Request, event: SchemaEventCreate, db: Session = Depends(get_db)):
     """Create a single schema event"""
     # Validate model exists
     model = db.query(Model).filter(Model.id == event.model_id).first()
@@ -71,9 +72,9 @@ def create_event(event: SchemaEventCreate, db: Session = Depends(get_db)):
     db.refresh(db_event)
     return db_event
 
-
+@limiter.limit("30/minute")
 @router.get("/model/{model_id}", response_model=List[SchemaEventResponse])
-def list_model_events(model_id: int, db: Session = Depends(get_db)):
+def list_model_events(request: Request, model_id: int, db: Session = Depends(get_db)):
     """
     Get all events for a specific model, ordered chronologically.
 
@@ -94,9 +95,9 @@ def list_model_events(model_id: int, db: Session = Depends(get_db)):
 
     return events
 
-
+@limiter.limit("30/minute")
 @router.get("/{event_id}", response_model=SchemaEventResponse)
-def get_event(event_id: int, db: Session = Depends(get_db)):
+def get_event(request: Request, event_id: int, db: Session = Depends(get_db)):
     """Get a single event by ID"""
     event = db.query(SchemaEvent).filter(SchemaEvent.id == event_id).first()
     if not event:

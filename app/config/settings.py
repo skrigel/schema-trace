@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     debug_logs: bool = False
     database_url: str = ""
     secret_key: str = ""
+    api_key: str = ""  # API key for authentication (leave empty for no auth in dev)
 
     model_config = SettingsConfigDict(env_file=".env")
 

@@ -1,14 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.db.database import get_db
+from app.dependencies import limiter
 from app.db.models import Project
 from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from app.core.auth import optional_verify_api_key
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
-
+@limiter.limit("10/minute")
 @router.post("/", response_model=ProjectResponse, status_code=201)
-def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
+def create_project(
+    request: Request,
+    project: ProjectCreate,
+    db: Session = Depends(get_db),
+    api_key: str = Depends(optional_verify_api_key)
+):
     """Create a new project"""
     # Check for duplicate name
     existing = db.query(Project).filter(Project.name == project.name).first()
@@ -25,15 +32,16 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
     return db_project
 
 
+@limiter.limit("10/minute")
 @router.get("/", response_model=list[ProjectResponse])
-def list_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def list_projects(request: Request, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """List all projects with pagination"""
     projects = db.query(Project).offset(skip).limit(limit).all()
     return projects
 
-
+@limiter.limit("10/minute")
 @router.get("/by-name/{project_name}", response_model=ProjectResponse)
-def get_project_by_name(project_name: str, db: Session = Depends(get_db)):
+def get_project_by_name(request: Request, project_name: str, db: Session = Depends(get_db)):
     """Get a project by name (useful for CLI)"""
     project = db.query(Project).filter(Project.name == project_name).first()
     if not project:
@@ -43,9 +51,9 @@ def get_project_by_name(project_name: str, db: Session = Depends(get_db)):
         )
     return project
 
-
+@limiter.limit("10/minute")
 @router.get("/{project_id}", response_model=ProjectResponse)
-def get_project(project_id: int, db: Session = Depends(get_db)):
+def get_project(request: Request, project_id: int, db: Session = Depends(get_db)):
     """Get a project by ID"""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
@@ -55,9 +63,9 @@ def get_project(project_id: int, db: Session = Depends(get_db)):
         )
     return project
 
-
+@limiter.limit("10/minute")
 @router.patch("/{project_id}", response_model=ProjectResponse)
-def update_project(project_id: int, project: ProjectUpdate, db: Session = Depends(get_db)):
+def update_project(request: Request, project_id: int, project: ProjectUpdate, db: Session = Depends(get_db)):
     """Update a project's name or description"""
     db_project = db.query(Project).filter(Project.id == project_id).first()
     if not db_project:
@@ -75,9 +83,9 @@ def update_project(project_id: int, project: ProjectUpdate, db: Session = Depend
     db.refresh(db_project)
     return db_project
 
-
+@limiter.limit("10/minute")
 @router.delete("/{project_id}", status_code=204)
-def delete_project(project_id: int, db: Session = Depends(get_db)):
+def delete_project(request: Request, project_id: int, db: Session = Depends(get_db)):
     """Delete a project and all its models, fields, and events"""
     db_project = db.query(Project).filter(Project.id == project_id).first()
     if not db_project:
