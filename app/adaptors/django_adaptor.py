@@ -1,21 +1,67 @@
 from .base import BaseAdapter, SchemaEventData
-from typing import List, Dict, Any
+from typing import List
 from pathlib import Path
-from datetime import datetime
-from pydantic import BaseModel
-
+from app.parsers.django_migration import DjangoMigrationFile
+from app.parsers.django_mapper import DjangoOperationMapper
+from app.parsers.django_field_extractor import DjangoFieldExtractor
 
 class DjangoAdapter(BaseAdapter):
+    """Django migration adapter with AST parsing"""
+
+    def __init__(self):
+        self.field_extractor = DjangoFieldExtractor()
+        self.operation_mapper = DjangoOperationMapper(self.field_extractor)
 
     def detect(self, path: Path) -> bool:
-        # Look for "migrations/*.py" files
-        migration_files = list(path.glob("migrations/*.py"))
-        return len(migration_files) > 0
+        """Look for migrations/*.py files"""
+        path = Path(path)
+
+        if path.is_dir():
+            # Check for migrations directory
+            migrations_dirs = list(path.rglob("migrations"))
+            for mig_dir in migrations_dirs:
+                if any(mig_dir.glob("*.py")):
+                    return True
+
+        return False
 
     def parse(self, path: Path) -> List[SchemaEventData]:
-        # TODO: Placeholder implementation 
-        # parse the Django migration files to extract schema events.
-        return []
-    
+        """
+        Parse all Django migration files and extract schema events.
+        """
+        path = Path(path)
+        events = []
+
+        migration_files = sorted(path.rglob("migrations/*.py"))
+
+        for file_path in migration_files:
+            # Skip __init__.py and __pycache__
+            if file_path.name.startswith("__"):
+                continue
+
+            try:
+                # Parse migration file
+                migration = DjangoMigrationFile(file_path)
+                migration.load()
+
+                timestamp = migration.extract_timestamp()
+
+                # Extract operations
+                operations = migration.extract_operations()
+
+                # Map each operation to an event
+                for op_node in operations:
+                    event = self.operation_mapper.map_operation(op_node, timestamp)
+                    if event:
+                        events.append(event)
+
+            except Exception as e:
+                print(f"Warning: Failed to parse {file_path}: {e}")
+                continue
+
+        events.sort(key=lambda e: e.timestamp)
+
+        return events
+
     def get_framework_name(self) -> str:
         return "Django"
