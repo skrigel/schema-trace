@@ -1,0 +1,10 @@
+[project]
+name = "my-cli-tool"
+version = "0.1.0"
+dependencies = [
+    "typer[all]",
+    # Add other dependencies here
+]
+
+[project.scripts]
+mycli = "main:app" # Maps the 'mycli' command to the 'app' object in main.py
