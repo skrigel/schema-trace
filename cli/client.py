@@ -29,6 +29,7 @@ class APIClient:
         # Set API key header if configured
         if config.api_key:
             self.session.headers.update({"X-API-Key": config.api_key})
+        
 
     def _request(self, method: str, endpoint: str, **kwargs) -> requests.Response:
         """
@@ -169,8 +170,6 @@ class APIClient:
         params = {"project_id": project_id} if project_id else {}
         response = self._request("GET", "/models/", params=params)
         return response.json()
-
-    # Event endpoints
 
     def upload_events_bulk(self, events: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
