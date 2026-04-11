@@ -12,6 +12,7 @@ class SchemaEventBase(BaseModel):
 
 class SchemaEventCreate(SchemaEventBase):
     model_id: int
+    timestamp: datetime | None = Field(default=None, description="Event timestamp (defaults to now if not provided)")
 
 
 class SchemaEventResponse(SchemaEventBase):
