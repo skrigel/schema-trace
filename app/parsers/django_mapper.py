@@ -1,5 +1,5 @@
 import ast
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 from app.adaptors.base import SchemaEventData
 
@@ -10,46 +10,53 @@ class DjangoOperationMapper:
         self.field_extractor = field_extractor
 
     def map_operation(
-        self, 
-        operation_node: ast.Call, 
+        self,
+        operation_node: ast.Call,
         timestamp: datetime
-    ) -> Optional[SchemaEventData]:
+    ) -> List[SchemaEventData]:
         """
-        Map a single Django operation to SchemaEventData.
-        
-        Returns None if operation is not a schema change we track.
+        Map a single Django operation to a list of SchemaEventData.
+
+        Returns empty list if operation is not a schema change we track.
+        Most operations return a single event, but CreateModel returns multiple.
         """
         op_name = self._get_operation_name(operation_node)
         if not op_name:
-            return None
+            return []
 
         # Extract common arguments
         args = self._extract_args(operation_node)
 
         # Map based on operation type
         if op_name == "AddField":
-            return self._map_add_field(args, timestamp)
+            event = self._map_add_field(args, timestamp)
+            return [event] if event else []
 
         elif op_name == "RemoveField":
-            return self._map_remove_field(args, timestamp)
+            event = self._map_remove_field(args, timestamp)
+            return [event] if event else []
 
         elif op_name == "AlterField":
-            return self._map_alter_field(args, timestamp)
+            event = self._map_alter_field(args, timestamp)
+            return [event] if event else []
 
         elif op_name == "RenameField":
-            return self._map_rename_field(args, timestamp)
+            event = self._map_rename_field(args, timestamp)
+            return [event] if event else []
 
         elif op_name == "CreateModel":
-            return self._map_create_model(args, timestamp)
+            return self._extract_create_model_fields(operation_node, timestamp)
 
         elif op_name == "AddIndex":
-            return self._map_add_index(args, timestamp)
+            event = self._map_add_index(args, timestamp)
+            return [event] if event else []
 
         elif op_name == "RemoveIndex":
-            return self._map_remove_index(args, timestamp)
+            event = self._map_remove_index(args, timestamp)
+            return [event] if event else []
 
         # Ignore operations we don't track
-        return None
+        return []
 
     def _get_operation_name(self, node: ast.Call) -> Optional[str]:
         """Extract operation name (e.g., 'AddField' from migrations.AddField)"""
@@ -163,17 +170,53 @@ class DjangoOperationMapper:
             metadata={'new_name': new_name}
         )
 
-    def _map_create_model(self, args: Dict, timestamp: datetime) -> Optional[SchemaEventData]:
+    def _extract_create_model_fields(self, operation_node: ast.Call, timestamp: datetime) -> List[SchemaEventData]:
         """
-        Map CreateModel operation.
-        
-        Note: This creates multiple events - one for the model creation,
-        then one for each field. For now, we'll skip this or handle specially.
+        Extract all fields from a CreateModel operation as separate ADD_COLUMN events.
+
+        Example:
+            migrations.CreateModel(
+                name='User',
+                fields=[
+                    ('id', models.BigAutoField(...)),
+                    ('username', models.CharField(...)),
+                ]
+            )
         """
-        # TODO: Decide how to handle CreateModel
-        # Option 1: Skip it (fields will be added via AddField in later migrations)
-        # Option 2: Create ADD_COLUMN events for each field
-        return None
+        events = []
+        model_name = None
+
+        # Extract model name and fields from operation
+        for keyword in operation_node.keywords:
+            if keyword.arg == "name":
+                model_name = self._extract_constant(keyword.value)
+            elif keyword.arg == "fields" and isinstance(keyword.value, ast.List):
+                if not model_name:
+                    continue
+
+                # Each field is a tuple: (field_name, field_definition)
+                for field_tuple in keyword.value.elts:
+                    if not isinstance(field_tuple, ast.Tuple) or len(field_tuple.elts) < 2:
+                        continue
+
+                    field_name = self._extract_constant(field_tuple.elts[0])
+                    field_node = field_tuple.elts[1]
+
+                    if not field_name:
+                        continue
+
+                    metadata = self.field_extractor.extract_field_metadata(field_node)
+
+                    events.append(SchemaEventData(
+                        model_name=model_name,
+                        event_type="ADD_COLUMN",
+                        field_name=field_name,
+                        timestamp=timestamp,
+                        risk_level="low",
+                        metadata=metadata
+                    ))
+
+        return events
 
     def _map_add_index(self, args: Dict, timestamp: datetime) -> Optional[SchemaEventData]:
         """Map AddIndex operation"""

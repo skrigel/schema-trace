@@ -32,7 +32,13 @@ class DjangoAdapter(BaseAdapter):
         path = Path(path)
         events = []
 
-        migration_files = sorted(path.rglob("migrations/*.py"))
+        # Check if path IS a migrations directory or contains one
+        if path.name == "migrations" and path.is_dir():
+            # We're in the migrations directory itself
+            migration_files = sorted(path.glob("*.py"))
+        else:
+            # Look for migrations subdirectories
+            migration_files = sorted(path.rglob("migrations/*.py"))
 
         for file_path in migration_files:
             # Skip __init__.py and __pycache__
@@ -49,11 +55,10 @@ class DjangoAdapter(BaseAdapter):
                 # Extract operations
                 operations = migration.extract_operations()
 
-                # Map each operation to an event
+                # Map each operation to events (may return multiple events per operation)
                 for op_node in operations:
-                    event = self.operation_mapper.map_operation(op_node, timestamp)
-                    if event:
-                        events.append(event)
+                    operation_events = self.operation_mapper.map_operation(op_node, timestamp)
+                    events.extend(operation_events)
 
             except Exception as e:
                 print(f"Warning: Failed to parse {file_path}: {e}")
